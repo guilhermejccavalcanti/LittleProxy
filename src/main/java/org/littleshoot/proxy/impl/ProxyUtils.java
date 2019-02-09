@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -17,7 +18,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
  * Utilities for the proxy.
  */
 public class ProxyUtils {
+
     /**
      * Hop-by-hop headers that should be removed when proxying, as defined by the HTTP 1.1 spec, section 13.5.1
      * (http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
@@ -43,17 +44,7 @@ public class ProxyUtils {
      *
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
      */
-    private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
-            HttpHeaders.Names.CONNECTION.toLowerCase(Locale.US),
-            HttpHeaders.Names.PROXY_AUTHENTICATE.toLowerCase(Locale.US),
-            HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US),
-            HttpHeaders.Names.TE.toLowerCase(Locale.US),
-            HttpHeaders.Names.TRAILER.toLowerCase(Locale.US),
-            /*  Note: Not removing Transfer-Encoding since LittleProxy does not normally re-chunk content.
-                HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US), */
-            HttpHeaders.Names.UPGRADE.toLowerCase(Locale.US),
-            "Keep-Alive".toLowerCase(Locale.US)
-    );
+    private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(HttpHeaders.Names.CONNECTION.toLowerCase(Locale.US), HttpHeaders.Names.PROXY_AUTHENTICATE.toLowerCase(Locale.US), HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US), HttpHeaders.Names.TE.toLowerCase(Locale.US), HttpHeaders.Names.TRAILER.toLowerCase(Locale.US), HttpHeaders.Names.UPGRADE.toLowerCase(Locale.US), "Keep-Alive".toLowerCase(Locale.US));
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
@@ -69,10 +60,10 @@ public class ProxyUtils {
      */
     private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
+    // Should never be constructed.
     // Schemes are case-insensitive:
     // http://tools.ietf.org/html/rfc3986#section-3.1
-    private static Pattern HTTP_PREFIX = Pattern.compile("^https?://.*",
-            Pattern.CASE_INSENSITIVE);
+    private static Pattern HTTP_PREFIX = Pattern.compile("^https?://.*", Pattern.CASE_INSENSITIVE);
 
     /**
      * Strips the host from a URI string. This will turn "http://host.com/path"
@@ -84,8 +75,6 @@ public class ProxyUtils {
      */
     public static String stripHost(final String uri) {
         if (!HTTP_PREFIX.matcher(uri).matches()) {
-            // It's likely a URI path, not the full URI (i.e. the host is
-            // already stripped).
             return uri;
         }
         final String noHttpUri = StringUtils.substringAfter(uri, "://");
@@ -127,13 +116,13 @@ public class ProxyUtils {
      * @see SimpleDateFormat
      */
     public static String formatDate(final Date date, final String pattern) {
-        if (date == null)
+        if (date == null) {
             throw new IllegalArgumentException("date is null");
-        if (pattern == null)
+        }
+        if (pattern == null) {
             throw new IllegalArgumentException("pattern is null");
-
-        final SimpleDateFormat formatter = new SimpleDateFormat(pattern,
-                Locale.US);
+        }
+        final SimpleDateFormat formatter = new SimpleDateFormat(pattern, Locale.US);
         formatter.setTimeZone(GMT);
         return formatter.format(date);
     }
@@ -187,12 +176,8 @@ public class ProxyUtils {
     public static String parseHostAndPort(final String uri) {
         final String tempUri;
         if (!HTTP_PREFIX.matcher(uri).matches()) {
-            // Browsers particularly seem to send requests in this form when
-            // they use CONNECT.
             tempUri = uri;
         } else {
-            // We can't just take a substring from a hard-coded index because it
-            // could be either http or https.
             tempUri = StringUtils.substringAfter(uri, "://");
         }
         final String hostAndPort;
@@ -211,17 +196,13 @@ public class ProxyUtils {
      *            The original response to copy from.
      * @return The copy with all mutable fields from the original.
      */
-    public static HttpResponse copyMutableResponseFields(
-            final HttpResponse original) {
-
+    public static HttpResponse copyMutableResponseFields(final HttpResponse original) {
         HttpResponse copy = null;
         if (original instanceof DefaultFullHttpResponse) {
             ByteBuf content = ((DefaultFullHttpResponse) original).content();
-            copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
-                    original.getStatus(), content);
+            copy = new DefaultFullHttpResponse(original.getProtocolVersion(), original.getStatus(), content);
         } else {
-            copy = new DefaultHttpResponse(original.getProtocolVersion(),
-                    original.getStatus());
+            copy = new DefaultHttpResponse(original.getProtocolVersion(), original.getStatus());
         }
         final Collection<String> headerNames = original.headers().names();
         for (final String name : headerNames) {
@@ -248,14 +229,7 @@ public class ProxyUtils {
      * @param alias the alias to provide in the Via header for this proxy
      */
     public static void addVia(HttpMessage httpMessage, String alias) {
-        String newViaHeader =  new StringBuilder()
-                .append(httpMessage.getProtocolVersion().majorVersion())
-                .append('.')
-                .append(httpMessage.getProtocolVersion().minorVersion())
-                .append(' ')
-                .append(alias)
-                .toString();
-
+        String newViaHeader = new StringBuilder().append(httpMessage.getProtocolVersion().majorVersion()).append('.').append(httpMessage.getProtocolVersion().minorVersion()).append(' ').append(alias).toString();
         final List<String> vias;
         if (httpMessage.headers().contains(HttpHeaders.Names.VIA)) {
             List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
@@ -264,10 +238,16 @@ public class ProxyUtils {
         } else {
             vias = Collections.singletonList(newViaHeader);
         }
-
         httpMessage.headers().set(HttpHeaders.Names.VIA, vias);
     }
 
+    /**
+     * Adds the Via header to specify that the message has passed through the
+     * proxy.
+     * 
+     * @param msg
+     *            The HTTP message.
+     */
     /**
      * Returns <code>true</code> if the specified string is either "true" or
      * "on" ignoring case.
@@ -294,8 +274,7 @@ public class ProxyUtils {
         return checkTrueOrFalse(val, "false", "off");
     }
 
-    public static boolean extractBooleanDefaultFalse(final Properties props,
-            final String key) {
+    public static boolean extractBooleanDefaultFalse(final Properties props, final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
             return throttle.trim().equalsIgnoreCase("true");
@@ -303,32 +282,28 @@ public class ProxyUtils {
         return false;
     }
 
-    public static boolean extractBooleanDefaultTrue(final Properties props,
-            final String key) {
+    public static boolean extractBooleanDefaultTrue(final Properties props, final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
             return throttle.trim().equalsIgnoreCase("true");
         }
         return true;
     }
-    
+
     public static int extractInt(final Properties props, final String key) {
         return extractInt(props, key, -1);
     }
-    
+
     public static int extractInt(final Properties props, final String key, int defaultValue) {
         final String readThrottleString = props.getProperty(key);
-        if (StringUtils.isNotBlank(readThrottleString) &&
-            NumberUtils.isNumber(readThrottleString)) {
+        if (StringUtils.isNotBlank(readThrottleString) && NumberUtils.isNumber(readThrottleString)) {
             return Integer.parseInt(readThrottleString);
         }
         return defaultValue;
     }
 
     public static boolean isCONNECT(HttpObject httpObject) {
-        return httpObject instanceof HttpRequest
-                && HttpMethod.CONNECT.equals(((HttpRequest) httpObject)
-                        .getMethod());
+        return httpObject instanceof HttpRequest && HttpMethod.CONNECT.equals(((HttpRequest) httpObject).getMethod());
     }
 
     /**
@@ -341,11 +316,9 @@ public class ProxyUtils {
         return HttpMethod.HEAD.equals(httpRequest.getMethod());
     }
 
-    private static boolean checkTrueOrFalse(final String val,
-            final String str1, final String str2) {
+    private static boolean checkTrueOrFalse(final String val, final String str1, final String str2) {
         final String str = val.trim();
-        return StringUtils.isNotBlank(str)
-                && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
+        return StringUtils.isNotBlank(str) && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
     }
 
     /**
@@ -359,19 +332,13 @@ public class ProxyUtils {
         if (msg instanceof HttpResponse) {
             HttpResponse res = (HttpResponse) msg;
             int code = res.getStatus().code();
-
-            // Correctly handle return codes of 1xx.
-            //
-            // See:
-            //     - http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
-            //     - https://github.com/netty/netty/issues/222
             if (code >= 100 && code < 200) {
-                // One exception: Hixie 76 websocket handshake response
                 return !(code == 101 && !res.headers().contains(HttpHeaders.Names.SEC_WEBSOCKET_ACCEPT));
             }
-
-            switch (code) {
-                case 204: case 205: case 304:
+            switch(code) {
+                case 204:
+                case 205:
+                case 304:
                     return true;
             }
         }
@@ -421,26 +388,15 @@ public class ProxyUtils {
         if (isContentAlwaysEmpty(response)) {
             return true;
         }
-
-        // if there is a Transfer-Encoding value, determine whether the final encoding is "chunked", which makes the message self-terminating
         List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, response);
         if (!allTransferEncodingHeaders.isEmpty()) {
             String finalEncoding = allTransferEncodingHeaders.get(allTransferEncodingHeaders.size() - 1);
-
-            // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
-            // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
             return HttpHeaders.Values.CHUNKED.equals(finalEncoding);
         }
-
         String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
         if (contentLengthHeader != null && !contentLengthHeader.isEmpty()) {
             return true;
         }
-
-        // not checking for multipart/byteranges, since it is seldom used and its use as a message length indicator was removed in RFC 7230
-
-        // none of the other message length indicators are present, so the only way the server can indicate the end
-        // of this message is to close the connection
         return false;
     }
 
@@ -482,13 +438,11 @@ public class ProxyUtils {
         if (allHeaders.isEmpty()) {
             return Collections.emptyList();
         }
-
         ImmutableList.Builder<String> headerValues = ImmutableList.builder();
         for (String header : allHeaders) {
             List<String> commaSeparatedValues = splitCommaSeparatedHeaderValues(header);
             headerValues.addAll(commaSeparatedValues);
         }
-
         return headerValues.build();
     }
 
@@ -501,7 +455,6 @@ public class ProxyUtils {
     public static HttpResponse duplicateHttpResponse(HttpResponse originalResponse) {
         DefaultHttpResponse newResponse = new DefaultHttpResponse(originalResponse.getProtocolVersion(), originalResponse.getStatus());
         newResponse.headers().add(originalResponse.headers());
-
         return newResponse;
     }
 
@@ -557,5 +510,18 @@ public class ProxyUtils {
      */
     public static List<String> splitCommaSeparatedHeaderValues(String headerValue) {
         return ImmutableList.copyOf(COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(headerValue));
+    }
+
+    /**
+     * Determines if UDT is available on the classpath.
+     *
+     * @return true if UDT is available
+     */
+    public static boolean isUdtAvailable() {
+        try {
+            return NioUdtProvider.BYTE_PROVIDER != null;
+        } catch (NoClassDefFoundError e) {
+            return false;
+        }
     }
 }

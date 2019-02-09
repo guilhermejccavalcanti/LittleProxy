@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import org.littleshoot.proxy.impl.ThreadPoolConfiguration;
 import java.net.InetSocketAddress;
 
 /**
@@ -36,8 +37,7 @@ public interface HttpProxyServerBootstrap {
      * @param transportProtocol
      * @return
      */
-    HttpProxyServerBootstrap withTransportProtocol(
-            TransportProtocol transportProtocol);
+    HttpProxyServerBootstrap withTransportProtocol(TransportProtocol transportProtocol);
 
     /**
      * <p>
@@ -101,8 +101,7 @@ public interface HttpProxyServerBootstrap {
      * @param sslEngineSource
      * @return
      */
-    HttpProxyServerBootstrap withSslEngineSource(
-            SslEngineSource sslEngineSource);
+    HttpProxyServerBootstrap withSslEngineSource(SslEngineSource sslEngineSource);
 
     /**
      * <p>
@@ -117,8 +116,7 @@ public interface HttpProxyServerBootstrap {
      * @param authenticateSslClients
      * @return
      */
-    HttpProxyServerBootstrap withAuthenticateSslClients(
-            boolean authenticateSslClients);
+    HttpProxyServerBootstrap withAuthenticateSslClients(boolean authenticateSslClients);
 
     /**
      * <p>
@@ -133,8 +131,7 @@ public interface HttpProxyServerBootstrap {
      * @param proxyAuthenticator
      * @return
      */
-    HttpProxyServerBootstrap withProxyAuthenticator(
-            ProxyAuthenticator proxyAuthenticator);
+    HttpProxyServerBootstrap withProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
 
     /**
      * <p>
@@ -154,8 +151,7 @@ public interface HttpProxyServerBootstrap {
      * @param chainProxyManager
      * @return
      */
-    HttpProxyServerBootstrap withChainProxyManager(
-            ChainedProxyManager chainProxyManager);
+    HttpProxyServerBootstrap withChainProxyManager(ChainedProxyManager chainProxyManager);
 
     /**
      * <p>
@@ -175,8 +171,7 @@ public interface HttpProxyServerBootstrap {
      * @param mitmManager
      * @return
      */
-    HttpProxyServerBootstrap withManInTheMiddle(
-            MitmManager mitmManager);
+    HttpProxyServerBootstrap withManInTheMiddle(MitmManager mitmManager);
 
     /**
      * <p>
@@ -191,8 +186,7 @@ public interface HttpProxyServerBootstrap {
      * @param filtersSource
      * @return
      */
-    HttpProxyServerBootstrap withFiltersSource(
-            HttpFiltersSource filtersSource);
+    HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource);
 
     /**
      * <p>
@@ -207,8 +201,7 @@ public interface HttpProxyServerBootstrap {
      * @param useDnsSec
      * @return
      */
-    HttpProxyServerBootstrap withUseDnsSec(
-            boolean useDnsSec);
+    HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
 
     /**
      * <p>
@@ -222,8 +215,7 @@ public interface HttpProxyServerBootstrap {
      * @param transparent
      * @return
      */
-    HttpProxyServerBootstrap withTransparent(
-            boolean transparent);
+    HttpProxyServerBootstrap withTransparent(boolean transparent);
 
     /**
      * <p>
@@ -238,8 +230,7 @@ public interface HttpProxyServerBootstrap {
      * @param idleConnectionTimeout
      * @return
      */
-    HttpProxyServerBootstrap withIdleConnectionTimeout(
-            int idleConnectionTimeout);
+    HttpProxyServerBootstrap withIdleConnectionTimeout(int idleConnectionTimeout);
 
     /**
      * <p>
@@ -254,8 +245,7 @@ public interface HttpProxyServerBootstrap {
      * @param connectTimeout
      * @return
      */
-    HttpProxyServerBootstrap withConnectTimeout(
-            int connectTimeout);
+    HttpProxyServerBootstrap withConnectTimeout(int connectTimeout);
 
     /**
      * Specify a custom {@link HostResolver} for resolving server addresses.
@@ -309,4 +299,11 @@ public interface HttpProxyServerBootstrap {
      */
     HttpProxyServer start();
 
+    /**
+     * Set the configuration parameters for the proxy's thread pools.
+     *
+     * @param configuration thread pool configuration
+     * @return proxy server bootstrap for chaining
+     */
+    HttpProxyServerBootstrap withThreadPoolConfiguration(ThreadPoolConfiguration configuration);
 }
